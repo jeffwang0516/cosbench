@@ -3,6 +3,7 @@ package com.intel.cosbench.api.S3Stor;
 import static com.intel.cosbench.client.S3Stor.S3Constants.*;
 
 import java.io.*;
+import java.util.List;
 
 import org.apache.http.HttpStatus;
 
@@ -133,6 +134,33 @@ public class S3Storage extends NoneStorage {
         	initClient();
         }
         
+        return stream;
+    }
+
+	@Override
+	public InputStream getList(String container, String prefix, Config config) {
+		super.getList(container, prefix, config);
+        InputStream stream = null;
+        try {
+            ObjectListing s3ObjList = client.listObjects(container, prefix);
+            List<S3ObjectSummary> objSummaries = s3ObjList.getObjectSummaries();
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            for (S3ObjectSummary s : objSummaries) {
+                baos.write(s.toString().getBytes());
+            }
+            byte[] bytes = baos.toByteArray();
+            stream = new ByteArrayInputStream(bytes);
+        } catch(AmazonServiceException ase) {
+            if(ase.getStatusCode() != HttpStatus.SC_NOT_FOUND) {
+                throw new StorageException(ase);
+            }
+        } catch (AmazonClientException ace) { // recreate the AmazonS3 client connection if it is broken.
+            logger.warn("below exception encountered when listing objects at bucket " + container  + " with prefix: " + prefix + ": " + ace.getMessage());
+ace.printStackTrace();
+			initClient();
+        } catch (IOException e) {
+			e.printStackTrace();
+		}
         return stream;
     }
 
